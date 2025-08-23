@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nexus</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d3436;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .setup-panel {
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        input {
+            background: #f8f9fa;
+        }
+
+        button {
+            background: #00b894;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #00a382;
+        }
+
+        button:disabled {
+            background: #b2bec3;
+            cursor: not-allowed;
+        }
+
+        .qr-section {
+            text-align: center;
+            padding: 20px;
+            background: #f1f2f6;
+            display: none;
+        }
+
+        #qrcode {
+            margin: 15px auto;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        .chat-container {
+            display: none;
+            flex-direction: column;
+            height: 500px;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 12px;
+            max-width: 80%;
+        }
+
+        .my-message {
+            background: #74b9ff;
+            color: white;
+            margin-left: auto;
+        }
+
+        .their-message {
+            background: #dfe6e9;
+            color: #2d3436;
+        }
+
+        .system-message {
+            background: #ffeaa7;
+            color: #2d3436;
+            text-align: center;
+            margin: 10px auto;
+            max-width: 90%;
+        }
+
+        .message-input {
+            padding: 15px;
+            background: white;
+            border-top: 2px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input input {
+            flex: 1;
+        }
+
+        .message-input button {
+            width: 60px;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            background: #2d3436;
+            color: white;
+            font-size: 14px;
+        }
+
+        .step-number {
+            background: #00b894;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+
+        .instructions {
+            background: #fff9e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ffd32a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬nexus</h1>
+            <p>Общайтесь без серверов!</p>
+        </div>
+
+        <div class="setup-panel" id="setupPanel">
+            <div class="input-group">
+                <label>📛 Ваше имя:</label>
+                <input type="text" id="myName" placeholder="Введите ваше имя" value="Я">
+            </div>
+
+            <div class="instructions">
+                <h3>🎯 Как подключиться:</h3>
+                <p><span class="step-number">1</span> Введите имя</p>
+                <p><span class="step-number">2</span> Нажмите "Создать чат"</p>
+                <p><span class="step-number">3</span> Другой человек сканирует QR-код</p>
+                <p><span class="step-number">4</span> Готово! Можно общаться</p>
+            </div>
+
+            <button onclick="createChat()" id="createBtn">🔄 Создать чат</button>
+            
+            <div class="input-group">
+                <label>🔗 Или вставьте код подключения:</label>
+                <input type="text" id="connectionCode" placeholder="Вставьте код сюда">
+                <button onclick="joinChat()" style="margin-top: 10px; background: #6c5ce7;">✅ Присоединиться</button>
+            </div>
+        </div>
+
+        <div class="qr-section" id="qrSection">
+            <h3>📲 Пусть друг отсканирует этот код:</h3>
+            <div id="qrcode"></div>
+            <p>Или отправьте этот код:</p>
+            <input type="text" id="connectionString" readonly>
+            <button onclick="copyCode()" style="background: #fd79a8;">📋 Скопировать код</button>
+            <button onclick="startChat()" style="background: #00b894;">💬 Начать чат</button>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages">
+                <div class="message system-message">
+                    💫 Чат создан! Напишите первое сообщение
+                </div>
+            </div>
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Напишите сообщение..." disabled>
+                <button onclick="sendMessage()" disabled id="sendBtn">➤</button>
+            </div>
+        </div>
+
+        <div class="status" id="status">❌ Не подключено</div>
+    </div>
+
+    <script>
+        let peerConnection = null;
+        let dataChannel = null;
+        let myName = '';
+        let isCreator = false;
+
+        // Конфигурация для P2P
+        const config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        function createChat() {
+            myName = document.getElementById('myName').value.trim();
+            if (!myName) {
+                alert('Введите ваше имя!');
+                return;
+            }
+
+            isCreator = true;
+            setupConnection();
+            
+            // Показываем QR-код
+            document.getElementById('setupPanel').style.display = 'none';
+            document.getElementById('qrSection').style.display = 'block';
+            
+            // Генерируем код подключения
+            const connectionCode = generateConnectionCode();
+            document.getElementById('connectionString').value = connectionCode;
+            
+            // Создаем QR-код
+            QRCode.toCanvas(document.getElementById('qrcode'), connectionCode, {
+                width: 200,
+                height: 200,
+                margin: 1
+            });
+            
+            updateStatus('🔄 Ожидаем подключения...');
+        }
+
+        function joinChat() {
+            myName = document.getElementById('myName').value.trim();
+            const connectionCode = document.getElementById('connectionCode').value.trim();
+            
+            if (!myName) {
+                alert('Введите ваше имя!');
+                return;
+            }
+            
+            if (!connectionCode) {
+                alert('Введите код подключения!');
+                return;
+            }
+
+            isCreator = false;
+            setupConnection();
+            connectToPeer(connectionCode);
+        }
+
+        function setupConnection() {
+            // Создаем P2P соединение
+            peerConnection = new RTCPeerConnection(config);
+            
+            // Настраиваем обработчики
+            peerConnection.oniceconnectionstatechange = () => {
+                updateStatus(getStatusEmoji() + ' ' + peerConnection.iceConnectionState);
+            };
+
+            // Если мы создатель чата, создаем канал данных
+            if (isCreator) {
+                dataChannel = peerConnection.createDataChannel('chat');
+                setupDataChannel();
+            } else {
+                // Если присоединяемся, ждем канал данных
+                peerConnection.ondatachannel = (event) => {
+                    dataChannel = event.channel;
+                    setupDataChannel();
+                };
+            }
+        }
+
+        function setupDataChannel() {
+            dataChannel.onopen = () => {
+                enableChat();
+                addMessage('Система', '✅ Подключение установлено!', 'system');
+                
+                // Отправляем информацию о себе
+                sendData({
+                    type: 'join',
+                    name: myName
+                });
+            };
+
+            dataChannel.onclose = () => {
+                disableChat();
+                addMessage('Система', '❌ Соединение разорвано', 'system');
+            };
+
+            dataChannel.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    console.log('Ошибка:', e);
+                }
+            };
+        }
+
+        async function connectToPeer(offerData) {
+            try {
+                const offer = JSON.parse(offerData);
+                await peerConnection.setRemoteDescription(offer);
+                
+                // Создаем ответ
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                // Отправляем ответ обратно (в реальном приложении - через сервер сигналинга)
+                // Здесь просто используем тот же канал
+                sendData({
+                    type: 'answer',
+                    answer: answer
+                });
+                
+                updateStatus('✅ Подключено!');
+                showChat();
+                
+            } catch (error) {
+                console.error('Ошибка подключения:', error);
+                updateStatus('❌ Ошибка подключения');
+            }
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'join':
+                    addMessage('Система', `👤 ${data.name} присоединился`, 'system');
+                    break;
+                case 'message':
+                    addMessage(data.name, data.text, 'their');
+                    break;
+                case 'answer':
+                    // Обрабатываем ответ на наше предложение
+                    peerConnection.setRemoteDescription(data.answer)
+                        .then(() => {
+                            updateStatus('✅ Подключено!');
+                            showChat();
+                        });
+                    break;
+            }
+        }
+
+        function sendData(data) {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify(data));
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (text && dataChannel) {
+                sendData({
+                    type: 'message',
+                    name: myName,
+                    text: text
+                });
+                
+                addMessage(myName, text, 'my');
+                input.value = '';
+            }
+        }
+
+        function addMessage(name, text, type) {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            
+            messageDiv.className = `message ${
+                type === 'my' ? 'my-message' : 
+                type === 'their' ? 'their-message' : 'system-message'
+            }`;
+            
+            const time = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <strong>${name}</strong> <small>${time}</small>
+                <br>${text}
+            `;
+            
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function generateConnectionCode() {
+            // Создаем предложение для подключения
+            return peerConnection.localDescription ? 
+                JSON.stringify(peerConnection.localDescription) : 
+                'waiting...';
+        }
+
+        function copyCode() {
+            const codeInput = document.getElementById('connectionString');
+            codeInput.select();
+            document.execCommand('copy');
+            alert('Код скопирован! Отправьте его другу.');
+        }
+
+        function startChat() {
+            showChat();
+        }
+
+        function showChat() {
+            document.getElementById('qrSection').style.display = 'none';
+            document.getElementById('chatContainer').style.display = 'flex';
+        }
+
+        function enableChat() {
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('messageInput').focus();
+        }
+
+        function disableChat() {
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+        }
+
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+
+        function getStatusEmoji() {
+            if (!peerConnection) return '❌';
+            
+            switch (peerConnection.iceConnectionState) {
+                case 'connected': return '✅';
+                case 'connecting': return '🔄';
+                case 'disconnected': return '⚠️';
+                case 'failed': return '❌';
+                default: return '❓';
+            }
+        }
+
+        // Отправка сообщения по Enter
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Автофокус на поле имени
+        document.getElementById('myName').focus();
+
+        // Простая генерация предложения (для демо)
+        async function generateOffer() {
+            if (isCreator && peerConnection) {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                return JSON.stringify(offer);
+            }
+            return '';
+        }
+
+        // Обновляем код подключения когда он готов
+        setInterval(() => {
+            if (isCreator && peerConnection && peerConnection.localDescription) {
+                const code = JSON.stringify(peerConnection.localDescription);
+                if (document.getElementById('connectionString').value !== code) {
+                    document.getElementById('connectionString').value = code;
+                    // Обновляем QR-код
+                    QRCode.toCanvas(document.getElementById('qrcode'), code, {
+                        width: 200,
+                        height: 200
+                    });
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
